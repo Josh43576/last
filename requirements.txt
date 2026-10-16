@@ -3,6 +3,7 @@ Flask-Login==0.6.3
 Flask-SQLAlchemy==3.1.1
 Werkzeug==3.0.1
 requests==2.31.0
+python-dotenv>=1.0,<2
 pyserial==3.5
 RPi.GPIO==0.7.1
 spidev==3.6

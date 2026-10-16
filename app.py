@@ -3,12 +3,17 @@ import math
 import os, secrets, smtplib, datetime
 from getpass import getpass
 import click
+from pathlib import Path
+from dotenv import load_dotenv
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user, UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import inspect, text, or_
+
+# Load this project's configuration regardless of the shell's current directory.
+load_dotenv(Path(__file__).resolve().with_name('.env'))
 
 app = Flask(__name__)
 DEFAULT_PRESET_LIMIT = 500.0

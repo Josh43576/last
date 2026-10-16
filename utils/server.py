@@ -1,6 +1,11 @@
 """Authenticated HTTP client for the Raspberry Pi device agent."""
 import os
+from pathlib import Path
 import requests
+from dotenv import load_dotenv
+
+# Load the same project-level settings when launched directly on the Pi.
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 DEFAULT_PRESET_LIMIT = 500.0
 DEFAULT_APPLIANCE_NAMES = ["Appliance 1", "Appliance 2", "Appliance 3"]
