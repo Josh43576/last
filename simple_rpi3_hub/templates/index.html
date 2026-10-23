@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf }}">
+  <title>RPi 3 Energy Hub</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"> <span class="brand-mark">⚡</span><span>Energy Hub<small>RASPBERRY PI 3</small></span></a>
+    <div class="top-actions"><span id="connection" class="status-pill warn">Connecting</span>
+      <form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf }}"><button class="quiet" type="submit">Sign out</button></form>
+    </div>
+  </header>
+  <main class="page">
+    <section class="hero">
+      <div><div class="eyebrow">LIVE SYSTEM TELEMETRY</div><h1>System overview</h1><p class="muted">PZEM Modbus readings · Relay control · RFID trip reset</p></div>
+      <div class="last-update"><span class="dot"></span><span id="last-updated">Waiting for readings</span></div>
+    </section>
+    <div id="system-alert" class="notice hidden"></div>
+    <section class="grid" aria-label="PZEM telemetry">
+      {% for key in keys %}
+      <article class="card" id="card-{{ key }}">
+        <div class="card-head"><div><div class="eyebrow">SLAVE {{ loop.index }}</div><h2>{{ names[key] }}</h2></div><span class="trip-pill" id="trip-{{ key }}">NORMAL</span></div>
+        <div class="power-reading"><span id="power-{{ key }}">--</span><small>W</small></div>
+        <div class="measurements">
+          <div><span>Voltage</span><strong id="voltage-{{ key }}">-- V</strong></div>
+          <div><span>Current</span><strong id="current-{{ key }}">-- A</strong></div>
+          <div><span>Energy</span><strong id="energy-{{ key }}">-- kWh</strong></div>
+        </div>
+        <div class="relay-row"><div><span class="eyebrow">RELAY</span><strong id="relay-state-{{ key }}">OFF</strong></div>
+          <button class="relay-button" id="relay-button-{{ key }}" type="button" onclick="toggleRelay('{{ key }}')">Turn ON</button>
+        </div>
+        <p class="sensor-error" id="error-{{ key }}"></p>
+      </article>
+      {% endfor %}
+    </section>
+    <section class="footer-card">
+      <div class="rfid-icon">◎</div><div class="rfid-copy"><div class="eyebrow">ONE-SCAN RFID RESET</div><strong id="rfid-status">Waiting for hub</strong><p>Authorized scan clears trip latches. It never turns relays ON.</p></div>
+      <span class="safe-label">SAFE RESET</span>
+    </section>
+    <footer>Hub server and relay controller run on this Raspberry Pi 3.</footer>
+  </main>
+<script>
+const csrf = document.querySelector('meta[name="csrf-token"]').content;
+const keys = {{ keys|tojson }};
+const fmt = (value, digits=1) => value === null || value === undefined || !Number.isFinite(Number(value)) ? '--' : Number(value).toFixed(digits);
+function showAlert(message) {
+  const el = document.getElementById('system-alert');
+  el.textContent = message || '';
+  el.classList.toggle('hidden', !message);
+}
+async function refresh() {
+  try {
+    const response = await fetch('/api/status', {cache: 'no-store'});
+    if (!response.ok) throw new Error('Hub status unavailable');
+    const data = await response.json();
+    const connection = document.getElementById('connection');
+    connection.textContent = data.stale ? 'Telemetry stale' : 'Hub connected';
+    connection.className = 'status-pill ' + (data.stale ? 'warn' : 'good');
+    document.getElementById('last-updated').textContent = data.updated_at ? 'Updated ' + new Date(data.updated_at).toLocaleTimeString() : 'Waiting for readings';
+    document.getElementById('rfid-status').textContent = data.rfid_status;
+    for (const key of keys) {
+      const row = data.readings[key] || {};
+      const on = Boolean(data.relays[key]);
+      const tripped = Boolean(data.tripped[key]);
+      document.getElementById('power-' + key).textContent = fmt(row.power, 1);
+      document.getElementById('voltage-' + key).textContent = fmt(row.voltage, 1) + ' V';
+      document.getElementById('current-' + key).textContent = fmt(row.current, 3) + ' A';
+      document.getElementById('energy-' + key).textContent = fmt(row.energy / 1000, 3) + ' kWh';
+      document.getElementById('relay-state-' + key).textContent = on ? 'ON' : 'OFF';
+      const button = document.getElementById('relay-button-' + key);
+      button.textContent = on ? 'Turn OFF' : 'Turn ON';
+      button.classList.toggle('is-on', on);
+      button.disabled = !on && (tripped || Boolean(row.error) || data.stale);
+      const trip = document.getElementById('trip-' + key);
+      trip.textContent = tripped ? 'TRIPPED' : 'NORMAL';
+      trip.classList.toggle('is-tripped', tripped);
+      document.getElementById('error-' + key).textContent = row.error || '';
+    }
+  } catch (error) {
+    document.getElementById('connection').textContent = 'Hub offline';
+    document.getElementById('connection').className = 'status-pill bad';
+    showAlert(error.message);
+  }
+}
+async function toggleRelay(key) {
+  const isOn = document.getElementById('relay-state-' + key).textContent === 'ON';
+  const response = await fetch('/api/relay', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf}, body: JSON.stringify({relay: key, on: !isOn})});
+  const result = await response.json();
+  if (!response.ok) showAlert(result.error || 'Relay request failed'); else showAlert('');
+  await refresh();
+}
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>

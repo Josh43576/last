@@ -9,7 +9,6 @@ from datetime import date, datetime, timezone
 
 from sensors import read_all_pzem
 from controls.relay import control_appliance, cleanup as cleanup_relay, init as init_relays
-from display.lcd import show_readings, initialize_lcd
 from utils.server import (
     get_appliance_configs, get_control_commands, report_trip,
     send_to_server, set_appliance_names,
@@ -244,7 +243,6 @@ def main():
     shutdown_requested = False
     appliance_names = load_appliance_names() or DEFAULT_APPLIANCE_NAMES.copy()
     configure_appliance_names()
-    initialize_lcd()
     if not init_relays():
         cleanup_relay()
         raise RuntimeError("Relay initialization failed; refusing to run control loop")
@@ -270,7 +268,6 @@ def main():
                 configs = get_appliance_configs()
                 limits = configured_limits(configs) if configs is not None else None
                 apply_commands(readings, commands, limits)
-                show_readings(readings, appliance_names)
             time.sleep(5)
     except Exception as exc:
         print(f"Device loop stopped after an unexpected error: {exc}")

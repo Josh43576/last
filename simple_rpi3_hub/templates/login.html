@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RPi 3 Energy Hub | Sign in</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-page">
+  <main class="login-card">
+    <div class="eyebrow">RASPBERRY PI 3 · LOCAL HUB</div>
+    <h1>Energy Hub</h1>
+    <p class="muted">Sign in to view telemetry and operate relays.</p>
+    {% if error %}<div class="notice error">{{ error }}</div>{% endif %}
+    <form method="post">
+      <label>Username<input name="username" autocomplete="username" required autofocus></label>
+      <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+      <button class="primary full" type="submit">Sign in</button>
+    </form>
+  </main>
+</body>
+</html>

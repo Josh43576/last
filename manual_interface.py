@@ -5,7 +5,7 @@ Read-only manual monitor for the Raspberry Pi power system.
 Workflow:
 1. Scan RFID card to start
 2. Read electrical parameters from PZEM sensors via RS485
-3. Display readings on MPI3508 LCD
+3. Print readings to the terminal (or view them in the web dashboard)
 4. Check if power consumption exceeds preset limit
 5. If limit exceeded, issue an alert and prompt for an admin acknowledgement
 6. Return to step 1
@@ -18,7 +18,6 @@ import time
 import math
 from sensors import read_all_pzem
 from auth.rfid import read_rfid_id, is_authorized, AUTHORIZED_IDS
-from display.lcd import initialize_lcd, show_readings
 
 # Configuration
 DEFAULT_PRESET_LIMIT = 500.0  # watts
@@ -41,14 +40,6 @@ def get_total_power(readings):
         if math.isfinite(power) and power >= 0:
             total += power
     return total
-
-
-def display_readings_on_lcd(readings):
-    """Display sensor readings on LCD in a user-friendly format."""
-    try:
-        show_readings(readings, APPLIANCE_NAMES)
-    except Exception as e:
-        print(f"LCD display error: {e}")
 
 
 def check_power_limit(total_power):
@@ -106,8 +97,8 @@ def wait_for_user_card():
         time.sleep(1)
 
 
-def read_and_display_sensors():
-    """Read all PZEM sensors and display on LCD."""
+def read_and_report_sensors():
+    """Read all PZEM sensors and report them in the terminal."""
     readings = read_all_pzem()
     print("\nReading sensors...")
     for index, data in enumerate(readings):
@@ -116,9 +107,6 @@ def read_and_display_sensors():
             print(f"  {name} (ID {data.get('slave_id')}): ERROR - {data['error']}")
         else:
             print(f"  {name}: V={data['voltage']}V, I={data['current']}A, P={data['power']}W, E={data['energy']}Wh")
-
-    # Display on LCD
-    display_readings_on_lcd(readings)
 
     return readings
 
@@ -134,9 +122,6 @@ def main():
     print(f"Authorized Admin IDs: {AUTHORIZED_IDS}")
     print()
 
-    # Initialize LCD
-    initialize_lcd()
-
     try:
         while True:
             # Step 1: Wait for user card
@@ -144,7 +129,7 @@ def main():
             print(f"User card scanned: {user_card}")
 
             # Step 2: Read sensors
-            readings = read_and_display_sensors()
+            readings = read_and_report_sensors()
             total_power = get_total_power(readings)
             last_total_power = total_power
 
