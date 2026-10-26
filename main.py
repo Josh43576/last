@@ -15,7 +15,7 @@ from utils.server import (
 )
 
 shutdown_requested = False
-BASELINE_MODE = os.environ.get("BASELINE_MODE", "0").strip().lower() in {"1", "true", "yes"}
+BASELINE_MODE = os.environ.get("BASELINE_MODE", "1").strip().lower() in {"1", "true", "yes"}
 DEVICE_KEYS = ("acu", "outlet", "lighting")
 DEFAULT_APPLIANCE_NAMES = ["Appliance 1", "Appliance 2", "Appliance 3"]
 appliance_names = DEFAULT_APPLIANCE_NAMES.copy()
