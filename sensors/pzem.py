@@ -219,6 +219,15 @@ def read_pzem_register(ser, slave_id: int, register_address: int, quantity: int 
     raise RuntimeError(f"Modbus read failed for slave {slave_id} without a valid response")
 
 
+def _decode_register_value(raw: bytes) -> int:
+    """Decode PZEM values, whose 32-bit values place the low register first."""
+    if len(raw) == 4:
+        low_word = int.from_bytes(raw[:2], byteorder="big", signed=False)
+        high_word = int.from_bytes(raw[2:], byteorder="big", signed=False)
+        return (high_word << 16) | low_word
+    return int.from_bytes(raw, byteorder="big", signed=False)
+
+
 def read_pzem(port, slave_id: int = 1):
     """Read a single PZEM sensor using its configured Modbus slave ID."""
     if serial is None:
@@ -257,7 +266,7 @@ def read_pzem(port, slave_id: int = 1):
             for name, address, quantity, scale in reads:
                 try:
                     raw = read_pzem_register(ser, slave_id, address, quantity=quantity)
-                    result[name] = int.from_bytes(raw, byteorder="big", signed=False) / scale
+                    result[name] = _decode_register_value(raw) / scale
                 except Exception as exc:
                     errors.append(f"{name} read failed: {exc}")
             result["error"] = " | ".join(errors) or None
