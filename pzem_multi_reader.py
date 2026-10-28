@@ -2,7 +2,7 @@
 """Compatibility wrapper for the project's shared PZEM Modbus reader."""
 import time
 
-from sensors.pzem import PZEM_PORTS, PZEM_SLAVE_IDS, read_pzem
+from sensors.pzem import PZEM_PORTS, PZEM_SLAVE_IDS, prompt_for_slave_id, read_pzem
 
 SERIAL_PORT = PZEM_PORTS[0]
 PZEM_IDS = list(PZEM_SLAVE_IDS)
@@ -22,11 +22,16 @@ def print_module_data(data):
 
 
 def main():
-    print(f"Reading shared Modbus bus on {SERIAL_PORT}; slaves {PZEM_IDS}")
+    print(f"Reading shared Modbus bus on {SERIAL_PORT}; available slave IDs: {PZEM_IDS}")
     while True:
-        for slave_id in PZEM_IDS:
-            print_module_data(read_pzem_module(slave_id))
-        time.sleep(5)
+        selected_slave = prompt_for_slave_id(PZEM_IDS)
+        print(f"\nTesting branch/slave ID {selected_slave} on {SERIAL_PORT}...")
+        print_module_data(read_pzem_module(selected_slave))
+        again = input("Test another branch? [y/N]: ").strip().lower()
+        if again not in {"y", "yes"}:
+            print("Stopping PZEM branch test.")
+            break
+        print()
 
 
 if __name__ == "__main__":

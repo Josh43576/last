@@ -13,6 +13,7 @@ __all__ = [
     "PZEM_SLAVE_IDS",
     "BAUDRATE",
     "get_available_ports",
+    "prompt_for_slave_id",
     "build_modbus_request",
     "calculate_crc",
     "validate_modbus_response",
@@ -69,6 +70,28 @@ def get_available_ports():
         if len(ports) >= 3:
             break
     return ports
+
+
+def prompt_for_slave_id(slave_ids=None, input_func=input):
+    """Prompt the user to choose a specific PZEM branch/slave ID and validate the answer."""
+    available_ids = list(slave_ids if slave_ids is not None else PZEM_SLAVE_IDS)
+    if not available_ids:
+        raise ValueError("No PZEM slave IDs configured for selection.")
+
+    while True:
+        choices = ", ".join(str(item) for item in available_ids)
+        raw_value = input_func(f"Select branch/slave ID to test ({choices}): ").strip()
+        try:
+            selected = int(raw_value)
+        except ValueError:
+            print("Invalid selection. Please enter a number from the listed slave IDs.")
+            continue
+
+        if selected not in available_ids:
+            print(f"Invalid selection: {selected}. Choose one of: {choices}")
+            continue
+
+        return selected
 
 
 def calculate_crc(data):

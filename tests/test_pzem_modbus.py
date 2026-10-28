@@ -7,6 +7,7 @@ from sensors.pzem import (
     PZEM_SLAVE_IDS,
     build_modbus_request,
     calculate_crc,
+    prompt_for_slave_id,
     validate_modbus_response,
 )
 
@@ -37,6 +38,13 @@ class TestPzemModbus(unittest.TestCase):
         frame = b"\x02\x84\x02" + calculate_crc(b"\x02\x84\x02")
         with self.assertRaises(ValueError):
             validate_modbus_response(frame, 0x04)
+
+    def test_prompt_for_slave_id_accepts_valid_choice(self):
+        self.assertEqual(prompt_for_slave_id([1, 2, 3], input_func=lambda _: "2"), 2)
+
+    def test_prompt_for_slave_id_retries_invalid_choice(self):
+        answers = iter(["9", "3"])
+        self.assertEqual(prompt_for_slave_id([1, 2, 3], input_func=lambda _: next(answers)), 3)
 
     def test_module_imports_without_serial_package(self):
         import importlib
