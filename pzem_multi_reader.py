@@ -22,10 +22,10 @@ def print_module_data(data):
 
 
 def main():
-    print(f"Reading shared Modbus bus on {SERIAL_PORT}; available slave IDs: {PZEM_IDS}")
+    print(f"Available PZEM slave IDs: {PZEM_IDS}")
     while True:
         selected_slave = prompt_for_slave_id(PZEM_IDS)
-        print(f"\nTesting branch/slave ID {selected_slave} on {SERIAL_PORT}...")
+        print(f"\nReading branch/slave ID {selected_slave} on {SERIAL_PORT}...")
         print_module_data(read_pzem_module(selected_slave))
         again = input("Test another branch? [y/N]: ").strip().lower()
         if again not in {"y", "yes"}:
