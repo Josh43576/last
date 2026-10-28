@@ -1,5 +1,12 @@
 # Embedded System Reliability Changes
 
+## PZEM-004T V4 multi-meter setup
+
+- Documented the V4 TTL-to-RS485 wiring topology, shared bus assumptions, and the Pi's 9600 8N1 serial configuration.
+- Added `configure_pzem_address.py` and `set_pzem_address()` to assign Modbus IDs to one isolated meter at a time, using function 0x06 and verifying the new ID.
+- Updated the PZEM reader to poll the 10 measurement registers in one Modbus function 0x04 request and documented the procedure in `PZEM_V4_SETUP.md`.
+- Updated hardware notes and the diagnostic procedure. Physical address programming and hardware validation remain to be performed on the Pi.
+
 ## Summary
 
 The app and Pi agent now use a single command path: an administrator submits a request to Flask, Flask persists it, and the Pi polls it and applies safety checks before touching GPIO. Telemetry includes PZEM identity and energy data, settings survive restarts, and the dashboard renders current server data instead of placeholder readings.

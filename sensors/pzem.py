@@ -18,12 +18,14 @@ __all__ = [
     "calculate_crc",
     "validate_modbus_response",
     "read_pzem_register",
+    "set_pzem_address",
     "read_pzem",
     "read_all_pzem",
 ]
 
-# One RS485 bus with 3 PZEM modules on distinct Modbus slave IDs.
-# Keep a single serial port and poll the devices sequentially.
+# PZEM-004T V4 modules use TTL UART. Use one TTL-to-RS485 transceiver per meter
+# for a shared RS485 bus, plus a USB-to-RS485 adapter at the Pi. Poll distinct
+# Modbus slave IDs sequentially over the single bus.
 PZEM_PORTS = [
     "/dev/ttyUSB0",
 ]
@@ -228,6 +230,55 @@ def _decode_register_value(raw: bytes) -> int:
     return int.from_bytes(raw, byteorder="big", signed=False)
 
 
+def set_pzem_address(port, current_id: int, new_id: int):
+    """Change one PZEM-004T V4 address and verify it responds at the new ID.
+
+    Uses Modbus function 0x06 to write the new ID to holding register 0x0002.
+    The caller must isolate exactly one meter on the RS485 bus before calling.
+    """
+    if serial is None:
+        raise RuntimeError("pyserial is not installed; install the project dependencies.")
+    if not 1 <= current_id <= 247 or not 1 <= new_id <= 247:
+        raise ValueError("PZEM Modbus IDs must be from 1 through 247.")
+    if current_id == new_id:
+        raise ValueError("The new ID is already the current ID.")
+
+    request = bytes([current_id, 0x06, 0x00, 0x02, 0x00, new_id])
+    request += calculate_crc(request)
+    with serial.Serial(
+        port,
+        baudrate=BAUDRATE,
+        bytesize=serial.EIGHTBITS,
+        parity=serial.PARITY_NONE,
+        stopbits=serial.STOPBITS_ONE,
+        timeout=0.2,
+        write_timeout=1.0,
+    ) as ser:
+        ser.reset_input_buffer()
+        set_rs485_direction(True)
+        try:
+            written = ser.write(request)
+            if written != len(request):
+                raise IOError(f"short Modbus write: {written}/{len(request)} bytes")
+            ser.flush()
+        finally:
+            set_rs485_direction(False)
+
+        # Modbus function 0x06 acknowledges by echoing the written request.
+        response = ser.read(8)
+        if len(response) != 8 or response[:6] != request[:6]:
+            raise RuntimeError(
+                f"No valid address-change acknowledgement; received {response.hex() or 'no bytes'}. "
+                "The meter may still have its old ID; check it individually before retrying."
+            )
+        if response[-2:] != calculate_crc(response[:-2]):
+            raise RuntimeError("Address-change acknowledgement has an invalid Modbus CRC.")
+
+        # Verify normal Modbus reads now work using the new address.
+        read_pzem_register(ser, new_id, 0x0000, quantity=1, retries=1)
+    return True
+
+
 def read_pzem(port, slave_id: int = 1):
     """Read a single PZEM sensor using its configured Modbus slave ID."""
     if serial is None:
@@ -256,20 +307,14 @@ def read_pzem(port, slave_id: int = 1):
             stopbits=serial.STOPBITS_ONE,
             timeout=SERIAL_TIMEOUT,
         ) as ser:
-            reads = (
-                ("voltage", 0x0000, 1, 10.0),
-                ("current", 0x0001, 2, 1000.0),
-                ("power", 0x0003, 2, 10.0),
-                ("energy", 0x0005, 2, 1.0),
-            )
-            errors = []
-            for name, address, quantity, scale in reads:
-                try:
-                    raw = read_pzem_register(ser, slave_id, address, quantity=quantity)
-                    result[name] = _decode_register_value(raw) / scale
-                except Exception as exc:
-                    errors.append(f"{name} read failed: {exc}")
-            result["error"] = " | ".join(errors) or None
+            raw = read_pzem_register(ser, slave_id, 0x0000, quantity=10)
+            if len(raw) != 20:
+                raise ValueError(f"Expected 20 bytes for 10 PZEM registers, received {len(raw)}")
+            result["voltage"] = int.from_bytes(raw[0:2], "big") / 10.0
+            result["current"] = _decode_register_value(raw[2:6]) / 1000.0
+            result["power"] = _decode_register_value(raw[6:10]) / 10.0
+            # The PZEM stores energy in Wh; main.py accumulates Wh deltas as kWh.
+            result["energy"] = _decode_register_value(raw[10:14])
         return result
     except Exception as exc:
         result["error"] = str(exc)

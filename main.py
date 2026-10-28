@@ -101,6 +101,8 @@ def update_daily_energy(readings, state, today=None):
         total_today = 0.0
     state["daily_energy_kwh"] = total_today if math.isfinite(total_today) and total_today >= 0 else 0.0
     for reading in readings:
+        if not isinstance(reading, dict) or reading.get("error"):
+            continue
         try:
             slave_id = str(int(reading["slave_id"]))
             energy_wh = float(reading["energy"])
@@ -145,6 +147,15 @@ def signal_handler(_sig, _frame):
 
 
 def valid_power(reading):
+    if not isinstance(reading, dict) or reading.get("error"):
+        return None
+    for field in ("voltage", "current"):
+        try:
+            component = float(reading[field])
+        except (KeyError, TypeError, ValueError):
+            return None
+        if not math.isfinite(component) or component < 0:
+            return None
     try:
         value = float(reading["power"])
     except (KeyError, TypeError, ValueError):
